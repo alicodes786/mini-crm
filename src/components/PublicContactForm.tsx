@@ -40,30 +40,39 @@ export function PublicContactForm({ agencySlug, agencyName }: Props) {
 
   if (done) {
     return (
-      <p className="rounded border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-900">
-        Thanks — {agencyName} will be in touch.
-      </p>
+      <div className="rounded-2xl border border-teal-200/80 bg-gradient-to-br from-teal-50/90 to-white px-6 py-8 text-center shadow-sm ring-1 ring-teal-600/10">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-teal-100 text-teal-700">
+          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <p className="mt-4 text-base font-semibold text-stone-900">Message sent</p>
+        <p className="mt-2 text-sm leading-relaxed text-stone-600">
+          Thanks — <span className="font-medium text-stone-800">{agencyName}</span> will be in touch soon.
+        </p>
+      </div>
     )
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-3">
+    <form onSubmit={onSubmit} className="space-y-5">
       <div>
-        <label className="mb-1 block text-sm font-medium text-neutral-800" htmlFor="name">
+        <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-stone-500" htmlFor="name">
           Name
         </label>
         <input
           id="name"
           name="name"
           required
-          className="w-full rounded border border-neutral-300 px-3 py-2 text-sm outline-none ring-blue-500 focus:ring-2"
+          className="w-full rounded-xl border border-stone-200 bg-stone-50/50 px-4 py-3 text-sm text-stone-900 outline-none transition placeholder:text-stone-400 focus:border-teal-500/40 focus:bg-white focus:ring-4 focus:ring-teal-500/15"
+          placeholder="Your full name"
           value={name}
           onChange={(e) => setName(e.target.value)}
           autoComplete="name"
         />
       </div>
       <div>
-        <label className="mb-1 block text-sm font-medium text-neutral-800" htmlFor="email">
+        <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-stone-500" htmlFor="email">
           Email
         </label>
         <input
@@ -71,14 +80,15 @@ export function PublicContactForm({ agencySlug, agencyName }: Props) {
           name="email"
           type="email"
           required
-          className="w-full rounded border border-neutral-300 px-3 py-2 text-sm outline-none ring-blue-500 focus:ring-2"
+          className="w-full rounded-xl border border-stone-200 bg-stone-50/50 px-4 py-3 text-sm text-stone-900 outline-none transition placeholder:text-stone-400 focus:border-teal-500/40 focus:bg-white focus:ring-4 focus:ring-teal-500/15"
+          placeholder="you@example.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           autoComplete="email"
         />
       </div>
       <div>
-        <label className="mb-1 block text-sm font-medium text-neutral-800" htmlFor="message">
+        <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-stone-500" htmlFor="message">
           Message
         </label>
         <textarea
@@ -86,22 +96,33 @@ export function PublicContactForm({ agencySlug, agencyName }: Props) {
           name="message"
           required
           rows={4}
-          className="w-full rounded border border-neutral-300 px-3 py-2 text-sm outline-none ring-blue-500 focus:ring-2"
+          className="w-full resize-y rounded-xl border border-stone-200 bg-stone-50/50 px-4 py-3 text-sm text-stone-900 outline-none transition placeholder:text-stone-400 focus:border-teal-500/40 focus:bg-white focus:ring-4 focus:ring-teal-500/15"
+          placeholder="What should we know about your inquiry?"
           value={message}
           onChange={(e) => setMessage(e.target.value)}
         />
       </div>
       {error ? (
-        <p className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900">
+        <p className="rounded-xl border border-red-200/80 bg-red-50/90 px-4 py-3 text-sm text-red-900" role="alert">
           {error}
         </p>
       ) : null}
       <button
         type="submit"
         disabled={submitting}
-        className="rounded bg-neutral-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-teal-600 to-teal-700 px-4 py-3 text-sm font-semibold text-white shadow-md shadow-teal-600/25 transition hover:from-teal-500 hover:to-teal-600 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {submitting ? 'Sending…' : 'Send'}
+        {submitting ? (
+          <>
+            <span
+              className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"
+              aria-hidden
+            />
+            Sending…
+          </>
+        ) : (
+          'Send message'
+        )}
       </button>
     </form>
   )
