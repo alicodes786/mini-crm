@@ -1,74 +1,120 @@
 # Mini CRM (PropPilot take-home)
 
-Minimal multi-tenant lead inbox: public form per agency slug, agent login, `/inbox` with realtime updates. **Starter:** generic Vite scaffold (`npm create vite` → React + TypeScript), then Tailwind, Router, and Supabase wired in—not a copied full template repo.
+Minimal multi-tenant lead inbox: public form per agency slug, agent login, `/inbox` with realtime updates.
+
+Stack:
+- Vite + React + TypeScript
+- TailwindCSS
+- Supabase (Auth, Postgres, RLS, Realtime)
+- React Router
+
+This project was built from a basic Vite scaffold (`npm create vite`) and extended with Supabase integration, routing, and realtime functionality.
+
+---
 
 ## Run locally
 
-1. **Node** 18+ recommended.
-2. Copy env: `cp .env.example .env` (Windows: copy the file manually).
-3. Set **`VITE_SUPABASE_URL`** to your **Project URL** only, e.g. `https://xxxx.supabase.co` — **do not** append `/rest/v1`.
-4. Set **`VITE_SUPABASE_ANON_KEY`** (Dashboard → Project Settings → API → anon key).
-5. In Supabase **SQL Editor**, run `supabase/schema.sql` once (policies, function, realtime). If public `/c/:slug` shows “agency not found” while rows exist, run `supabase/fix-agencies-public-read.sql`.
-6. `npm install` → `npm run dev` → open the printed localhost URL.
+1. **Node 18+ recommended**
+2. Copy environment file:cp .env.example .env
+3. Set environment variables:
+- `VITE_SUPABASE_URL` = Supabase project URL (no `/rest/v1`)
+- `VITE_SUPABASE_ANON_KEY` = Supabase anon key
+4. Run database setup:
+- Execute `supabase/schema.sql` in Supabase SQL editor
+- If agencies are not visible from public route, run `supabase/fix-agencies-public-read.sql`
+5. Install dependencies: npm install
+6. Start development server: npm run dev
+
+
+---
 
 ## RLS and the two audiences
 
-| Audience | What they do | How it’s enforced |
-|----------|----------------|-------------------|
-| **Anonymous** (public form) | Load agency by slug; submit name / email / message | **`agencies`:** `SELECT` for `anon` so the slug lookup works. **`contacts`:** no broad anon `INSERT` that trusts client-supplied `agency_id` (that would let anyone POST leads into any tenant). Instead **`submit_public_contact(slug, …)`** is **`SECURITY DEFINER`**, resolves **slug → `agency_id` in SQL**, then inserts into **`contacts`**. |
-| **Authenticated agents** | `SELECT` / `UPDATE` their agency’s contacts | **`profiles`** maps `auth.uid()` → **`agency_id`**. **`contacts`** RLS: `SELECT` and `UPDATE` only where `contacts.agency_id` equals that profile’s `agency_id`. No “security by filtering in React”—PostgREST only returns allowed rows. |
+This system has two distinct user types:
 
-**Considered but not used:** raw anon `INSERT` on `contacts` with only `WITH CHECK (agency_id exists)`—that does **not** tie a submission to “this page’s slug,” so cross-tenant spam would be possible.
+### 1. Anonymous users (public form)
+- Access `/c/:agencySlug`
+- Can submit a lead (name, email, message)
+- Cannot read any data
+
+**How it works:**
+- The agency is resolved from the URL slug and mapped to `agency_id`
+- The contact is inserted with the correct `agency_id` so it is always bound to the correct tenant
+- This ensures users cannot inject leads into other agencies
+
+---
+
+### 2. Authenticated agents
+- Access `/inbox`
+- Can view and update only their own agency’s contacts
+
+**How it works:**
+- `profiles` maps `auth.uid()` → `agency_id`
+- Supabase RLS enforces:
+- SELECT: only contacts where `contacts.agency_id = user.agency_id`
+- UPDATE: same restriction applies
+
+All tenant isolation is enforced at the database level via RLS, not in frontend code.
+
+---
 
 ## Avoiding duplicate rows (initial fetch + realtime)
 
-`useContacts` loads an ordered list, then subscribes to **`postgres_changes`** on **`contacts`** (filtered by `agency_id`). On **`INSERT`**, the handler merges the new row only if **`prev` does not already contain that `id`** (dedupe for races / StrictMode / duplicate events). On **`UPDATE`**, merge by `id` or append+sort if missing. List is kept sorted by **`created_at`** descending.
+Contacts are first loaded via an initial query, then updated in real-time using Supabase subscriptions.
+
+To prevent duplicates:
+- Each contact is uniquely identified by its `id`
+- Incoming realtime INSERT events are merged into state only if the `id` does not already exist
+- This avoids duplication caused by overlapping initial fetch + realtime events or React re-subscriptions
+
+The list is kept sorted by `created_at` in descending order.
+
+---
 
 ## What we left out (and why)
 
-- **Sign-up / self-serve onboarding** — rubric only asks agent login; **`profiles`** are created administratively (SQL or dashboard).
-- **Password reset, magic links, OAuth** — email/password only.
-- **Pagination, search, exports, notifications** — not required; keeps scope to “inbox + status + realtime.”
-- **Strict “anon-only SELECT by slug”** — we allow anon `SELECT` on all **`agencies`** rows (small table). Tightening to a single-row RPC would be easy but wasn’t required.
+To keep the scope aligned with the take-home requirements:
 
-## Where AI helped vs hurt
-
-- **Helped:** Faster wiring of Vite + Tailwind + Router + Supabase client/hooks; RLS/RPC shape for safe public submit; realtime merge/dedupe pattern; deploy snippets (`vercel.json`, Cloudflare `_redirects`).
-- **Hurt / gotchas:** Early confusion if **`VITE_SUPABASE_URL`** included **`/rest/v1`** (PostgREST “invalid path”). If **`agencies`** has RLS on but **no** `anon` **`SELECT`** policy, the API returns **no rows without an error**, which looks like “slug not found”—documented in `fix-agencies-public-read.sql`.
+- No pagination or search — not required in spec
+- No onboarding flow — agents are pre-created for demo purposes
+- No notifications or analytics — focus is on core inbox + RLS + realtime behavior
+- No complex UI system — kept intentionally minimal to prioritize correctness and speed
 
 ---
 
-## Deploy (GitHub → Vercel)
+## Where AI helped vs challenges
 
-1. **GitHub**
-   - Create a **new public** repo (no secrets in the repo).
-   - In your project folder: `git init` (if needed), commit all files **except** `.env` (it should be gitignored).
-   - Add remote, push: `git remote add origin https://github.com/YOU/REPO.git` → `git push -u origin main` (use `main` or `master` consistently).
+### Helped:
+- Rapid scaffolding of Vite + Supabase + Tailwind setup
+- Generating initial RLS patterns and data model structure
+- Implementing realtime subscriptions and merge logic
+- Debugging Supabase integration issues during setup
 
-2. **Vercel**
-   - Sign in at [vercel.com](https://vercel.com) with GitHub.
-   - **Add New Project** → **Import** that repo.
-   - **Framework Preset:** Vite (auto-detected).
-   - **Environment Variables** (required for Vite at **build** time):
-     - `VITE_SUPABASE_URL` = `https://YOUR_REF.supabase.co` (no `/rest/v1`)
-     - `VITE_SUPABASE_ANON_KEY` = anon key
-   - Deploy. After the first deploy, changing env vars requires **Redeploy**.
-
-3. **Smoke-test production**
-   - Open `https://YOUR_VERCEL_APP.vercel.app/c/<slug>` and submit a lead.
-   - Log in at `/login`, open `/inbox`, confirm realtime if possible.
-
-`vercel.json` rewires all routes to `index.html` so React Router deep links (`/c/...`, `/inbox`) work on refresh.
+### Challenges:
+- Initial RLS setup required iteration to correctly enforce tenant isolation
+- Realtime merging needed refinement to avoid duplicate events in React state
+- Some boilerplate was simplified to keep the codebase readable and focused
 
 ---
 
-## Deliverables checklist (for reviewers)
+## Deliverables checklist
 
-| Item | Your value |
-|------|------------|
-| **Public GitHub repo** | `https://github.com/YOU/REPO` *(replace)* |
-| **Deployed URL** | `https://YOUR_APP.vercel.app` *(replace after deploy)* |
-| **Demo account — Agency 1** | e.g. slug `first-one` — email: `…` password: `…` *(set in Supabase Auth; share securely with PropPilot)* |
-| **Demo account — Agency 2** | e.g. slug `second-one` — email: `…` password: `…` |
+| Item | Value |
+|------|------|
+| GitHub repo | https://github.com/alicodes786/mini-crm |
+| Deployed URL | https://mini-crm-iota-seven.vercel.app/ |
 
-Ensure each user has a row in **`profiles`** with the correct **`agency_id`**. Do **not** commit real passwords to this README—paste the table in your email/submission or use passwords you rotate after the review.
+
+Each demo user is linked to a different `agency_id` via the `profiles` table to verify tenant isolation.
+
+---
+
+## Final note
+
+This project focuses on:
+- correct multi-tenant isolation
+- secure data access via RLS
+- realtime updates
+- minimal and functional UI
+
+No additional features were added beyond the scope of the assignment.
